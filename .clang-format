@@ -1,0 +1,6 @@
+BasedOnStyle: Google
+Standard: c++20
+# Force & and * to hug the type (left alignment) instead of trying
+# to autodetect it for each individual file
+DerivePointerAlignment: false
+PointerAlignment: Left

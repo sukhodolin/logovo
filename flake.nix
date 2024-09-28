@@ -15,6 +15,7 @@
         name = "logovo";
         src = ./.;
         nativeBuildInputs = with pkgs; [ cmake ];
+        buildInputs = with pkgs; [ boost186 spdlog ];
       };
     in
     rec {
@@ -22,7 +23,6 @@
       devShell = with pkgs; mkShell.override { inherit stdenv; } {
         inputsFrom = [ logovo ];
         nativeBuildInputs = [ gdb clang-tools_18 ];
-        buildInputs = [ boost ];
       };
 
       packages.default = logovo;
