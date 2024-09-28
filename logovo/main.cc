@@ -1,22 +1,12 @@
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-
-#include <boost/asio/io_context.hpp>
 
 #include "server.h"
 
-namespace asio = boost::asio;
-
 int main(int argc, char* argv[]) {
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::trace);
 
-  // The io_context is required for all I/O
-  asio::io_context ioc;
-
-  Server server(ioc);
+  Server server;
   server.serve();
-
-  ioc.run();
 
   return 0;
 }

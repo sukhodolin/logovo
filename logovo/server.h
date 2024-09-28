@@ -4,10 +4,12 @@
 
 class Server {
  public:
-  Server(boost::asio::io_context& ioc);
+  Server();
 
   void serve();
 
  private:
-  boost::asio::io_context& ioc_;
+  // boost::asio::awaitable<void> listen_(boost::asio::ip::tcp::endpoint
+  // endpoint);
+  boost::asio::thread_pool ioc_;
 };
