@@ -16,5 +16,7 @@ int main(int argc, char* argv[]) {
   Server server(ioc);
   server.serve();
 
+  ioc.run();
+
   return 0;
 }

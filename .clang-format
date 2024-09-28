@@ -4,3 +4,4 @@ Standard: c++20
 # to autodetect it for each individual file
 DerivePointerAlignment: false
 PointerAlignment: Left
+AlignAfterOpenBracket: DontAlign
