@@ -11,3 +11,7 @@ If you don't want to bother with Nix, go with the regular C++ routine:
 - `cmake -H. -Bbuild/debug`
 - `cmake --build build/debug`
 - `./build/debug/logovo/logovo`
+
+# Requirements
+
+- GCC 14+

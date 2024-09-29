@@ -10,19 +10,19 @@
   outputs = { self, nixpkgs, flake-utils, systems, ... }: flake-utils.lib.eachSystem (import systems) (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      stdenv = pkgs.stdenv;
+      stdenv = pkgs.overrideCC pkgs.stdenv pkgs.gcc14;
       logovo = stdenv.mkDerivation {
         name = "logovo";
         src = ./.;
         nativeBuildInputs = with pkgs; [ cmake ];
-        buildInputs = with pkgs; [ boost186 spdlog ];
+        buildInputs = with pkgs; [ boost186 spdlog gtest ];
       };
     in
     rec {
       packages = { inherit logovo; };
       devShell = with pkgs; mkShell.override { inherit stdenv; } {
         inputsFrom = [ logovo ];
-        nativeBuildInputs = [ gdb clang-tools_18 ];
+        nativeBuildInputs = [ gdb llvmPackages_19.clang-tools ];
       };
 
       packages.default = logovo;

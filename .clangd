@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-std=gnu++20]
+  Add: [-std=gnu++23]
