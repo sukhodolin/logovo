@@ -13,7 +13,7 @@ then just run `nix run` in this directory.
 If you don't want to bother with Nix, you will need to take care of dependencies by yourself.
 The project needs:
 
-- GCC 14+ (The project uses `#include <generator>`, which is C++23)
+- Relatively up-to-date GCC or Clang (I've tested with GCC 13)
 - Recent Boost (Nix environment uses Boost 1.76)
 - spdlog
 - Google Test

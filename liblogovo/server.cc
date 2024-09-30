@@ -5,10 +5,10 @@
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/experimental/awaitable_operators.hpp>
-#include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
 #include <list>
+
+#include "handler.h"
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -16,31 +16,10 @@ namespace http = beast::http;
 
 using namespace boost::asio::experimental::awaitable_operators;
 
-using session_state = std::shared_ptr<beast::tcp_stream>;
-using handle = std::weak_ptr<session_state::element_type>;
+Server::Server(Handler& handler, std::string listen_at, ushort port)
+    : handler_(handler), listen_at_(listen_at), port_(port) {}
 
-Server::Server(std::string listen_at, ushort port)
-    : listen_at_(listen_at), port_(port) {}
-
-template <class Body, class Allocator>
-http::message_generator handle_request(
-    http::request<Body, http::basic_fields<Allocator>>&& req) {
-  // Returns a bad request response
-  auto const bad_request = [&req](beast::string_view why) {
-    http::response<http::string_body> res{
-        http::status::bad_request, req.version()};
-    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-    res.set(http::field::content_type, "text/html");
-    res.keep_alive(req.keep_alive());
-    res.body() = std::string(why);
-    res.prepare_payload();
-    spdlog::info("Response: {}", res.result_int());
-    return res;
-  };
-  return bad_request("Not implemented yet");
-}
-
-asio::awaitable<void> do_session(session_state s) {
+asio::awaitable<void> Server::session_(session_state s) {
   // This buffer is required to persist across reads
   beast::flat_buffer buffer;
 
@@ -51,9 +30,8 @@ asio::awaitable<void> do_session(session_state s) {
     // Read a request
     http::request<http::string_body> req;
     co_await http::async_read(*s, buffer, req);
-    spdlog::info("Request: {}", req.method_string().data());
     // Handle the request
-    http::message_generator msg = handle_request(std::move(req));
+    http::message_generator msg = handler_.handle_request(std::move(req));
 
     // Determine if we should close the connection
     bool keep_alive = msg.keep_alive();
@@ -94,7 +72,7 @@ void Server::serve() {
 
           handles.remove_if(std::mem_fn(&handle::expired));
           handles.emplace_back(s);
-          co_spawn(executor, do_session(s), [](std::exception_ptr e) {
+          co_spawn(executor, session_(s), [](std::exception_ptr e) {
             try {
               if (e) {
                 std::rethrow_exception(e);

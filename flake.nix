@@ -10,7 +10,7 @@
   outputs = { self, nixpkgs, flake-utils, systems, ... }: flake-utils.lib.eachSystem (import systems) (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      stdenv = pkgs.overrideCC pkgs.stdenv pkgs.gcc14;
+      stdenv = pkgs.stdenv;
       logovo = stdenv.mkDerivation {
         name = "logovo";
         src = ./.;

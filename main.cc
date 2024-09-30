@@ -1,3 +1,4 @@
+#include <liblogovo/handler.h>
 #include <liblogovo/server.h>
 #include <spdlog/spdlog.h>
 
@@ -16,7 +17,7 @@ int main(int argc, char* argv[]) {
   // clang-format off
   desc.add_options()
     ("help", "produce help message")
-    ("trace", po::value<bool>(&trace)->default_value(false),
+    ("trace", po::bool_switch(&trace)->default_value(false),
       "enable trace logs")
     ("log-root", po::value<std::string>(&log_root)->default_value("."),
       "log root directory to serve logs from")
@@ -28,23 +29,25 @@ int main(int argc, char* argv[]) {
   po::positional_options_description p;
   p.add("log-root", 1);
   po::variables_map vm;
-  po::store(
-      po::command_line_parser(argc, argv).options(desc).positional(p).run(),
-      vm);
-  po::notify(vm);
-  if (vm.count("help")) {
-    std::cout << desc << "\n";
-    return 1;
-  }
-
-  if (trace) {
-    spdlog::set_level(spdlog::level::trace);
-  } else {
-    spdlog::set_level(spdlog::level::info);
-  }
 
   try {
-    Server server(listen_at, port);
+    po::store(
+        po::command_line_parser(argc, argv).options(desc).positional(p).run(),
+        vm);
+    po::notify(vm);
+    if (vm.count("help")) {
+      std::cout << desc << "\n";
+      return 1;
+    }
+
+    if (trace) {
+      spdlog::set_level(spdlog::level::trace);
+    } else {
+      spdlog::set_level(spdlog::level::info);
+    }
+
+    Handler handler(std::filesystem::canonical(log_root));
+    Server server(handler, listen_at, port);
     server.serve();
   } catch (const std::exception& e) {
     spdlog::error(e.what());

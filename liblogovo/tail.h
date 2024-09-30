@@ -1,8 +1,12 @@
+#pragma once
 
 #include <cstddef>
-#include <generator>
-#include <string>
+#include <vector>
 
+#include "vendor/generator.h"
+
+// Uncomment this to get tons of output about how exactly the tail generator
+// below navigates through buffers
 // #define TAIL_ALGORITHM_ENABLE_TRACE
 
 #if defined(TAIL_ALGORITHM_ENABLE_TRACE)
