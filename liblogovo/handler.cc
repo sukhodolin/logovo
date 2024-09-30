@@ -69,6 +69,7 @@ boost::beast::http::message_generator Handler::handle_request(
 
 struct LogStream {
   std::ifstream input_stream;
+  std::function<bool(std::string_view)> grep;
   std::generator<std::string_view> generator;
 };
 
@@ -85,25 +86,30 @@ struct LogBodyWriter {
 
   boost::optional<std::pair<const_buffers_type, bool>> get(
       beast::error_code& ec) {
-    if (!maybe_current_) {
-      maybe_current_ = log_stream_->generator.begin();
-    } else {
-      (*maybe_current_)++;
-    }
-    auto& current = *maybe_current_;
+    std::optional<std::string_view> next;
+    while (!next) {
+      if (!maybe_current_) {
+        maybe_current_ = log_stream_->generator.begin();
+      } else {
+        (*maybe_current_)++;
+      }
+      auto& current = *maybe_current_;
 
-    if (current == log_stream_->generator.end()) {
+      if (current == log_stream_->generator.end()) {
+        ec = {};
+        return boost::none;
+      }
+
       ec = {};
-      return boost::none;
+      if (log_stream_->grep(*current)) {
+        next = *current;
+      }
     }
 
-    ec = {};
-    auto log_line = *current;
     // Sending lines one at a time might not be the most efficient thing, so an
     // obvious way to improve performance if needed is to add buffering here at
     // the writer.
-    auto result_buffer =
-        beast::net::const_buffer(log_line.data(), log_line.size());
+    auto result_buffer = beast::net::const_buffer(next->data(), next->size());
 
     return std::make_pair(result_buffer, true);
   }
@@ -122,6 +128,7 @@ struct LogBody {
 struct LogRequest {
   std::filesystem::path file_path;
   std::optional<size_t> maybe_n;
+  std::optional<std::string> maybe_grep;
 };
 
 // Parses a GET request, validates it and returns LogRequest
@@ -153,6 +160,11 @@ std::optional<LogRequest> parse_log_request(beast::string_view target) {
     result.maybe_n = static_cast<size_t>(n);
   }
 
+  auto params_grep = origin_form->params().find("grep");
+  if (params_grep != origin_form->params().end()) {
+    result.maybe_grep = (*params_grep).value;
+  }
+
   return result;
 }
 
@@ -173,7 +185,8 @@ http::message_generator Handler::handle_request_(
 
   spdlog::trace("Going to open the file at {}", full_file_path.string());
 
-  auto log_stream = open_file(full_file_path, request.maybe_n.value_or(10));
+  auto log_stream = open_file(
+      full_file_path, request.maybe_n.value_or(10), request.maybe_grep);
   if (!log_stream) {
     return not_found(req);
   }
@@ -187,16 +200,21 @@ http::message_generator Handler::handle_request_(
   return res;
 }
 
-std::unique_ptr<LogStream> Handler::open_file(
-    std::filesystem::path path, size_t n) {
+std::unique_ptr<LogStream> Handler::open_file(std::filesystem::path path,
+    size_t n, std::optional<std::string> maybe_grep) {
   if (!std::filesystem::is_regular_file(path)) {
     return nullptr;
   }
-  // TODO: Validate that path doesn't escape root dir
   auto result = std::make_unique<LogStream>();
   result->input_stream.open(path);
   if (!result->input_stream.is_open() || !result->input_stream.good()) {
     return nullptr;
+  }
+  if (maybe_grep) {
+    result->grep = [grep = *maybe_grep](
+                       std::string_view sv) { return sv.contains(grep); };
+  } else {
+    result->grep = [](std::string_view) { return true; };
   }
   result->generator = tail(result->input_stream, n);
 

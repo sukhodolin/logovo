@@ -16,7 +16,8 @@ class Handler {
   boost::beast::http::message_generator handle_request_(
       boost::beast::http::request<boost::beast::http::string_body>&& req);
 
-  std::unique_ptr<LogStream> open_file(std::filesystem::path, size_t n);
+  std::unique_ptr<LogStream> open_file(
+      std::filesystem::path, size_t n, std::optional<std::string> maybe_grep);
 
   std::filesystem::path root_dir_;
 };
