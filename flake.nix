@@ -28,6 +28,8 @@
       packages.default = logovo;
       apps.default.program = "${logovo}/bin/logovo";
       apps.default.type = "app";
+      apps.loggen.program = "${logovo}/bin/loggen";
+      apps.loggen.type = "app";
     }
   );
 }

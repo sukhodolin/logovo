@@ -19,7 +19,8 @@ using namespace boost::asio::experimental::awaitable_operators;
 using session_state = std::shared_ptr<beast::tcp_stream>;
 using handle = std::weak_ptr<session_state::element_type>;
 
-Server::Server() : ioc_() {}
+Server::Server(std::string listen_at, ushort port)
+    : listen_at_(listen_at), port_(port) {}
 
 template <class Body, class Allocator>
 http::message_generator handle_request(
@@ -75,10 +76,9 @@ asio::awaitable<void> do_session(session_state s) {
 }
 
 void Server::serve() {
-  spdlog::info("Starting HTTP server");
-  const auto address = asio::ip::make_address("0.0.0.0");
-  const auto port = 8080;
-  const auto endpoint = asio::ip::tcp::endpoint{address, port};
+  spdlog::info("Starting HTTP server listening at {}:{}", listen_at_, port_);
+  const auto address = asio::ip::make_address(listen_at_);
+  const auto endpoint = asio::ip::tcp::endpoint{address, port_};
 
   asio::signal_set signals(ioc_, SIGINT, SIGTERM);
 

@@ -1,2 +1,5 @@
 /build
 /.vscode
+# Examples in README.md use `log_root` directory in the current dir for
+# temporary test data
+/log_root

@@ -18,7 +18,7 @@ struct TailParameters {
   size_t BLOCK_SIZE = 4096;
 };
 
-// The heart of the project - a function to read a given amount of last lines
+// Core of the server - a generator to read a given amount of last lines
 // from a given file in line-reversed order.
 // Yielded string views remain valid while the generator object is alive and
 // until the next yield
@@ -100,7 +100,7 @@ std::generator<std::string_view> tail(IStream& input, size_t n) {
     }
     if (line_start == block.begin()) {
       if (block_start_file_offset == 0 && line_start == block.begin()) {
-        // We're dealing with the very first block in the file, yield it as is
+        // We're dealing with the very first line in the file, yield it as is
         auto value = std::string_view(line_start, line_end);
         TAIL_TRACE("yielding first block {} (line_start={}, line_end={})",
             value, line_start - block.begin(), line_end - block.begin());

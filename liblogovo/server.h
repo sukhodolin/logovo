@@ -4,12 +4,12 @@
 
 class Server {
  public:
-  Server();
+  Server(std::string listen_at, ushort port);
 
   void serve();
 
  private:
-  // boost::asio::awaitable<void> listen_(boost::asio::ip::tcp::endpoint
-  // endpoint);
+  std::string listen_at_;
+  ushort port_;
   boost::asio::thread_pool ioc_;
 };
