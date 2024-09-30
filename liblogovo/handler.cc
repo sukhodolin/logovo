@@ -14,7 +14,7 @@ namespace http = beast::http;
 
 // Maximum amount of lines that can be requested. Exceeding this will result in
 // bad request
-constexpr size_t REQUEST_MAX_N = 100000;
+constexpr size_t REQUEST_MAX_N = 1000000;
 
 Handler::Handler(std::filesystem::path root_dir) : root_dir_(root_dir) {}
 
@@ -54,8 +54,9 @@ auto internal_server_error(
 
 boost::beast::http::message_generator Handler::handle_request(
     boost::beast::http::request<boost::beast::http::string_body>&& req) {
-  spdlog::info(
-      "Request: {} {}", req.method_string().data(), req.target().data());
+  spdlog::info("Request: {} {}",
+      std::string(req.method_string().data(), req.method_string().size()),
+      std::string(req.target().data(), req.target().size()));
 
   try {
     auto res = handle_request_(std::move(req));
@@ -100,7 +101,7 @@ struct LogBodyWriter {
     auto log_line = *current;
     // Sending lines one at a time might not be the most efficient thing, so an
     // obvious way to improve performance if needed is to add buffering here at
-    // writer.
+    // the writer.
     auto result_buffer =
         beast::net::const_buffer(log_line.data(), log_line.size());
 

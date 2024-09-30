@@ -28,6 +28,9 @@ struct TailParameters {
 // until the next yield
 template <typename IStream, TailParameters Parameters = TailParameters()>
 std::generator<std::string_view> tail(IStream& input, size_t n) {
+  if (n == 0) {
+    co_return;
+  }
   std::vector<char> block(Parameters.BLOCK_SIZE);
   input.seekg(0, std::ios_base::end);
 

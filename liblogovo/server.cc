@@ -24,9 +24,6 @@ asio::awaitable<void> Server::session_(session_state s) {
   beast::flat_buffer buffer;
 
   for (;;) {
-    // Set the timeout.
-    s->expires_after(std::chrono::seconds(30));
-
     // Read a request
     http::request<http::string_body> req;
     co_await http::async_read(*s, buffer, req);
@@ -106,7 +103,7 @@ void Server::serve() {
 
           for (auto h : handles)
             if (auto s = h.lock()) {
-              spdlog::info("Shutting down live session {}:{}",
+              spdlog::info("Waiting for the live session to shut down {}:{}",
                   s->socket().remote_endpoint().address().to_string(),
                   s->socket().remote_endpoint().port());
               post(s->get_executor(), [s] { s->cancel(); });

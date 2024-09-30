@@ -22,7 +22,7 @@
       packages = { inherit logovo; };
       devShell = with pkgs; mkShell.override { inherit stdenv; } {
         inputsFrom = [ logovo ];
-        nativeBuildInputs = [ gdb llvmPackages_19.clang-tools ];
+        nativeBuildInputs = [ gdb llvmPackages_19.clang-tools valgrind ];
       };
 
       packages.default = logovo;
