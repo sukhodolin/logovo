@@ -27,10 +27,19 @@ struct TailParameters {
 // Yielded string views remain valid while the generator object is alive and
 // until the next yield
 template <typename IStream, TailParameters Parameters = TailParameters()>
-std::generator<std::string_view> tail(IStream& input, size_t n) {
+std::generator<std::string_view> tail(
+    IStream& input, size_t n, std::optional<std::string> grep = std::nullopt) {
   if (n == 0) {
     co_return;
   }
+
+  auto should_yield = [&](std::string_view v) -> bool {
+    if (grep) {
+      return v.contains(*grep);
+    }
+    return true;
+  };
+
   std::vector<char> block(Parameters.BLOCK_SIZE);
   input.seekg(0, std::ios_base::end);
 
@@ -59,10 +68,6 @@ std::generator<std::string_view> tail(IStream& input, size_t n) {
         block_start_file_offset);
 
     line_end = block.begin() + block_size;
-    // We always grab at least one character for the line, hence -2 (-1 to go to
-    // the last and another -1 to go to the one before it)
-    // But it might be that the block is just the single byte. This indicates
-    // we're in the beginning of the file that starts with an empty line.
     line_start = block.begin() + block_size - 1;
 
     TAIL_TRACE("starting the block: {}, line_start={}, line_end={}",
@@ -92,9 +97,11 @@ std::generator<std::string_view> tail(IStream& input, size_t n) {
       TAIL_TRACE("yielding {} (line_start={}, line_end={})", value,
           line_start - block.begin() + 1, line_end - block.begin());
 
-      co_yield value;
-      if (--n == 0) {
-        co_return;
+      if (should_yield(value)) {
+        co_yield value;
+        if (--n == 0) {
+          co_return;
+        }
       }
 
       // Now we want to end up like this (e.g. have a line with a single \n):
@@ -111,7 +118,10 @@ std::generator<std::string_view> tail(IStream& input, size_t n) {
         auto value = std::string_view(line_start, line_end);
         TAIL_TRACE("yielding first block {} (line_start={}, line_end={})",
             value, line_start - block.begin(), line_end - block.begin());
-        co_yield value;
+
+        if (should_yield(value)) {
+          co_yield value;
+        }
         // And we've reached the start of the file, so nothing to continue
         co_return;
       }

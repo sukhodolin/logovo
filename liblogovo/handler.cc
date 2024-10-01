@@ -69,14 +69,6 @@ boost::beast::http::message_generator Handler::handle_request(
 
 struct LogStream {
   std::ifstream input_stream;
-  // There is some mixing of concepts here because grep is implemented in the
-  // body writer, which is not ideal. Ideally whatever filtering we want should
-  // be embedded inside the generator. And that is generally possible with C++20
-  // ranges (by implementing grep as a filter_view). But the problem is that
-  // unless using ranges v3, which is yet another dependency, we cannot get type
-  // erasure for the combination of a generator and a filter, so I have
-  // implemented it here for the sake of brevity.
-  std::function<bool(std::string_view)> grep;
   std::generator<std::string_view> generator;
 };
 
@@ -94,30 +86,25 @@ struct LogBodyWriter {
   boost::optional<std::pair<const_buffers_type, bool>> get(
       beast::error_code& ec) {
     try {
-      std::optional<std::string_view> next;
-      while (!next) {
-        if (!maybe_current_) {
-          maybe_current_ = log_stream_->generator.begin();
-        } else {
-          (*maybe_current_)++;
-        }
-        auto& current = *maybe_current_;
+      if (!maybe_current_) {
+        maybe_current_ = log_stream_->generator.begin();
+      } else {
+        (*maybe_current_)++;
+      }
+      auto& current = *maybe_current_;
 
-        if (current == log_stream_->generator.end()) {
-          ec = {};
-          return boost::none;
-        }
-
+      if (current == log_stream_->generator.end()) {
         ec = {};
-        if (log_stream_->grep(*current)) {
-          next = *current;
-        }
+        return boost::none;
       }
 
+      ec = {};
+      auto log_line = *current;
       // Sending lines one at a time might not be the most efficient thing, so
       // an obvious way to improve performance is to add buffering here at the
       // writer.
-      auto result_buffer = beast::net::const_buffer(next->data(), next->size());
+      auto result_buffer =
+          beast::net::const_buffer(log_line.data(), log_line.size());
 
       return std::make_pair(result_buffer, true);
     } catch (const std::exception& e) {
@@ -221,13 +208,7 @@ std::unique_ptr<LogStream> Handler::open_file(std::filesystem::path path,
   if (!result->input_stream.is_open() || !result->input_stream.good()) {
     return nullptr;
   }
-  if (maybe_grep) {
-    result->grep = [grep = *maybe_grep](
-                       std::string_view sv) { return sv.contains(grep); };
-  } else {
-    result->grep = [](std::string_view) { return true; };
-  }
-  result->generator = tail(result->input_stream, n);
+  result->generator = tail(result->input_stream, n, maybe_grep);
 
   return result;
 }
