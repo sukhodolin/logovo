@@ -1,7 +1,8 @@
 # Logovo - log tail over HTTP
 
 This is a web server that serves logs from a given directory over HTTP. It's assumed that logs
-are lines of text with newest at the end of file.
+are lines of text with newest entries at the end of file. Log lines are served new entries first,
+so effectively in a reverse order compared to how they are stored in files.
 
 # Building & running
 
@@ -11,8 +12,8 @@ enables them by default, for other install options see [NixOS wiki](https://nixo
 
 If you have `nix` then you can just `nix run . -- <log dir>` in this directory.
 
-There is also a handy tool to generate dummy log data for testing, so you could run the following
-for a quick test:
+There is also a small supplementary tool to generate dummy log data for testing, so you could run
+the following for a quick test:
 
 ```
 mkdir -p log_root
@@ -69,6 +70,20 @@ The server only supports GET requests. Request path is used as the filesystem pa
 - `grep` is a filter string for results. If present, only the lines that have the substring with a
   given value will be produced
 
+Examples of requests are:
+
+Serve a million lines of `log.txt` containing the text '13':
+
+```
+curl --verbose 'localhost:8080/log.txt?n=1000000&grep=13'
+```
+
+Serve 10 last lines of `log.txt`:
+
+```
+curl --verbose 'localhost:8080/log.txt'
+```
+
 # Line length caveat
 
 The maximum length of the line in the log file is limited. The limit currently is 64 kilobytes (can
@@ -77,5 +92,6 @@ reply with HTTP 200 OK, but will terminate the data transmission once a long lin
 the client won't be able to tell if there really was an error, or if the server ran out of lines).
 Error log message will be logged at the server side, though.
 
-The reason for the limit is to avoid turning the server into a memory bomb. If a line size is unbounded then there's no way to limit the memory size used while reading the log line to detect
-where it begins and ends.
+The reason for the limit is to avoid turning the server into a memory bomb. If a line size is
+unbounded then it becomes way harder to limit the memory size used while reading the log line to
+detect where it begins and ends.

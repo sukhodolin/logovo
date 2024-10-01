@@ -12,6 +12,8 @@
 namespace beast = boost::beast;
 namespace http = beast::http;
 
+// Amount of lines to send if no number was explicitly requested.
+constexpr size_t DEFAULT_N = 10;
 // Maximum amount of lines that can be requested. Exceeding this will result in
 // bad request
 constexpr size_t REQUEST_MAX_N = 1000000;
@@ -67,11 +69,17 @@ boost::beast::http::message_generator Handler::handle_request(
   }
 }
 
+// Data required for serving a single log get request. Used as a value_type for
+// LogBody
 struct LogStream {
+  // generator holds a reference to the stream, so we store it right in this
+  // structure to ensure it's alive for the whole duration of the request.
   std::ifstream input_stream;
   std::generator<std::string_view> generator;
 };
 
+// Boost Beast body writer that fetches data from the LogStream and feeds it to
+// the network without having to save it in some sort of buffer first.
 struct LogBodyWriter {
  public:
   using const_buffers_type = beast::net::const_buffer;
@@ -118,6 +126,9 @@ struct LogBodyWriter {
   LogStream* log_stream_;
 };
 
+// Boost Beast body type. We aren't using any of the default body types because
+// we want to stream data from the `tail` generator right as we fetch it instead
+// of saving it to some kind of buffer.
 struct LogBody {
   using value_type = std::unique_ptr<LogStream>;
   using writer = LogBodyWriter;
@@ -183,8 +194,8 @@ http::message_generator Handler::handle_request_(
 
   spdlog::trace("Going to open the file at {}", full_file_path.string());
 
-  auto log_stream = open_file(
-      full_file_path, request.maybe_n.value_or(10), request.maybe_grep);
+  auto log_stream = make_log_stream(
+      full_file_path, request.maybe_n.value_or(DEFAULT_N), request.maybe_grep);
   if (!log_stream) {
     return not_found(req);
   }
@@ -198,7 +209,7 @@ http::message_generator Handler::handle_request_(
   return res;
 }
 
-std::unique_ptr<LogStream> Handler::open_file(std::filesystem::path path,
+std::unique_ptr<LogStream> Handler::make_log_stream(std::filesystem::path path,
     size_t n, std::optional<std::string> maybe_grep) {
   if (!std::filesystem::is_regular_file(path)) {
     return nullptr;

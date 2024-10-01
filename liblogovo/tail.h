@@ -22,10 +22,16 @@ struct TailParameters {
   size_t BLOCK_SIZE = 64 * 1024;
 };
 
-// Core of the server - a generator to read a given amount of last lines
-// from a given file in line-reversed order.
+// Core of the server - a generator that reads a given amount of last lines
+// (optionally having a given substring) from a given file in line-reversed
+// order.
+//
+// This generator works in a constant space (the buffer size in bytes is
+// provided via `TailParameters`) by reading chunks of data from the end of
+// file and extracting lines from them.
+//
 // Yielded string views remain valid while the generator object is alive and
-// until the next yield
+// until the next yield.
 template <typename IStream, TailParameters Parameters = TailParameters()>
 std::generator<std::string_view> tail(
     IStream& input, size_t n, std::optional<std::string> grep = std::nullopt) {
@@ -76,13 +82,14 @@ std::generator<std::string_view> tail(
     return true;
   };
 
+  // Start by reading the first block (right at the current end of file)
   if (!read_next_block()) {
     co_return;
   }
 
   for (;;) {
     while (line_start != block.begin() &&
-           // We need to grab at least one symbol
+           // We need to grab at least one symbol to handle \n\n sequences
            (*line_start != '\n' || line_start + 1 == line_end)) {
       line_start--;
     }
@@ -93,6 +100,7 @@ std::generator<std::string_view> tail(
     // previous line\nnext line[maybe \n]<remainder>
     //  line start [ ^                   ^ line end )
     while (*line_start == '\n' && line_start + 1 != line_end) {
+      // +1 is because we're standing at `\n` of the previous line
       auto value = std::string_view(line_start + 1, line_end);
       TAIL_TRACE("yielding {} (line_start={}, line_end={})", value,
           line_start - block.begin() + 1, line_end - block.begin());
@@ -106,14 +114,19 @@ std::generator<std::string_view> tail(
 
       // Now we want to end up like this (e.g. have a line with a single \n):
       //  previous line\nnext line[maybe \n]
-      // line start [ ^  ^ line end )
+      // line start [  ^ ^ line end )
       line_end = line_start + 1;
       if (line_start != block.begin()) {
         line_start--;
+      } else {
+        // If we're already standing at the beginning of the block, break out of
+        // the while loop and go right to the next 'if' (that will fetch us a
+        // new block)
+        break;
       }
     }
     if (line_start == block.begin()) {
-      if (block_start_file_offset == 0 && line_start == block.begin()) {
+      if (block_start_file_offset == 0) {
         // We're dealing with the very first line in the file, yield it as is
         auto value = std::string_view(line_start, line_end);
         TAIL_TRACE("yielding first block {} (line_start={}, line_end={})",
@@ -128,7 +141,9 @@ std::generator<std::string_view> tail(
 
       // We've reached the beginning of the line and need to fetch another block
       // Our file pointer stands right after the end of the current block and we
-      // want to move it to the last yielded line \n
+      // want to move it to the symbol before last yielded line's \n.
+      // The idea is that when fetching the next block, that symbol before \n
+      // will be right at the end of the block
       TAIL_TRACE(
           "block_size: {}, line_end: {}", block_size, line_end - block.begin());
       std::ptrdiff_t rewind = block_size - (line_end - block.begin());
