@@ -19,7 +19,7 @@
 #endif
 
 struct TailParameters {
-  size_t BLOCK_SIZE = 4096;
+  size_t BLOCK_SIZE = 64 * 1024;
 };
 
 // Core of the server - a generator to read a given amount of last lines
